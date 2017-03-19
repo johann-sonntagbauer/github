@@ -83,8 +83,14 @@ export default inject("issueStore")(
     class IssueFormComponent extends React.Component {
       constructor({ issueStore, route }) {
         super();
+
+        const values = {
+          title: 'example',
+          text: 'asdf'
+        }
+
         this.state = {
-          form: new IssueForm({ fields }, { plugins }, issueStore, route.params.repo)
+          form: new IssueForm({ fields, values }, { plugins }, issueStore, route.params.repo)
         };
       }
       render() {
