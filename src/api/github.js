@@ -34,6 +34,64 @@ export default class GithubAPI {
     });
   };
 
+  fetchIssues = ({ login, repo }) => {
+    return fetch(`https://api.github.com/repos/${login}/${repo}/issues`, {
+      method: "GET",
+      headers: {
+        ...this.defaultHeaders,
+        "Content-Type": "application/json"
+      }
+    }).then(response => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        return Promise.reject();
+      }
+    });
+  };
+
+  fetchIssue = ({ login, repo, issueId }) => {
+    return fetch(
+      `https://api.github.com/repos/${login}/${repo}/issues/${issueId}`,
+      {
+        method: "GET",
+        headers: {
+          ...this.defaultHeaders,
+          "Content-Type": "application/json"
+        }
+      }
+    ).then(response => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        return Promise.reject();
+      }
+    });
+  };
+
+  updateIssue = ({ login, repo, issueId, title, text }) => {
+    return fetch(
+      `https://api.github.com/repos/${login}/${repo}/issues/${issueId}`,
+      {
+        method: "PATCH",
+        headers: {
+          ...this.defaultHeaders,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title: title,
+          body: text
+        })
+      }
+    ).then(response => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        return Promise.reject();
+      }
+    });
+  };
+
   postIssue = ({ login, repo, title, text }) => {
     return fetch(`https://api.github.com/repos/${login}/${repo}/issues`, {
       method: "POST",

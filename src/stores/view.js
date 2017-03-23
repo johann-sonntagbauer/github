@@ -2,8 +2,10 @@ import createHistory from "history/createBrowserHistory";
 import { extendObservable, computed } from "mobx";
 import React from "react";
 import Issue from "../ui/issue";
+import IssueList from '../ui/issueList';
 import RepositoryList from "../ui/repositoryList";
 import RouteNotFound from "../ui/routeNotFound";
+import About from '../ui/about';
 import myro from "myro";
 
 const history = createHistory();
@@ -12,7 +14,8 @@ const routeDefinitions = {
   "/": "home",
   "/repos": "repos",
   "/about": "about",
-  "/issue/:repo": "issue"
+  "/issue/:repo/:issueId": "issue",
+  "/issuelist/:repo": "issueList"
 };
 
 const routes = myro(routeDefinitions);
@@ -34,13 +37,19 @@ export default class ViewStore {
           case "about": {
             return {
               ...route,
-              component: () => <div>about</div>
+              component: About
             };
           }
           case "repos": {
             return {
               ...route,
               component: RepositoryList
+            };
+          }
+          case "issueList": {
+            return {
+              ...route,
+              component: IssueList
             };
           }
           case "issue": {

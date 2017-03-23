@@ -1,11 +1,11 @@
 import MobxReactForm from "mobx-react-form";
 import React from "react";
 import { observer, Provider, inject } from "mobx-react";
-import { extendObservable } from "mobx";
+import { extendObservable, action } from "mobx";
 import { fromPromise } from "mobx-utils";
 import { Button, Intent, Toaster, Position } from "@blueprintjs/core";
 import validatorjs from "validatorjs";
-import FormInput from './formInput';
+import FormInput from "./formInput";
 
 const plugins = { dvr: validatorjs };
 
@@ -17,7 +17,7 @@ const fields = [
     rules: "required|string|between:5,10"
   },
   {
-    name: "text",
+    name: "body",
     label: "Text",
     placeholder: "Issue Description",
     rules: "required|string|between:5,25"
@@ -25,29 +25,76 @@ const fields = [
 ];
 
 class IssueForm extends MobxReactForm {
-  constructor(fields, options, issueStore, repo) {
+  constructor(
+    fields,
+    options,
+    issueStore,
+    sessionStore,
+    githubAPI,
+    repo,   
+    issueId
+  ) {
     super(fields, options);
     this.issueStore = issueStore;
     this.repo = repo;
+    this.issueId = issueId;
 
     extendObservable(this, {
-      issuePostDeferred: fromPromise(Promise.resolve())
+      issuePostDeferred: fromPromise(Promise.resolve()),
+      issueDeferred: fromPromise(Promise.resolve({})),
+    
+    // handling of issue creation and update
+      fetchIssue: action("fetchIssue", (repo, issueId) => {
+        const issuePromise = githubAPI.fetchIssue({
+          login: sessionStore.currentUser.login,
+          repo,
+          issueId
+        });
+        issuePromise.then(issue => {
+          console.log(issue);
+          
+          // update form with loaded issue data
+          // set is an API of MobxReactForm
+          this.set(issue);
+        });
+        this.issueDeferred = fromPromise(issuePromise);
+      })
     });
+
+    if (issueId === "new") {
+      this.issueDeferred = fromPromise(Promise.resolve({}));
+    } else {
+      this.fetchIssue(repo, issueId);
+    }
   }
 
   onSuccess(form) {
-    const { title, text } = form.values();
-    const resultPromise = this.issueStore.postIssue(this.repo, title, text);
+    const { title, body } = form.values();
+    let resultPromise;
+    
+    if (this.issueId === "new") {
+      resultPromise = this.issueStore.postIssue(this.repo, title, body);
+    } else {
+      resultPromise = this.issueStore.updateIssue(
+        this.repo,
+        this.issueId,
+        title,
+        body
+      );
+    }
+
     resultPromise
-      .then(() => Toaster.create({ position: Position.TOP }).show({
-        message: "issue posted",
-        intent: Intent.SUCCESS
-      }))
-      .catch(() => Toaster.create({ position: Position.TOP }).show({
-        message: "failed posting issue",
-        action: { text: "retry", onClick: () => form.submit() },
-        intent: Intent.DANGER
-      }));
+      .then(() =>
+        Toaster.create({ position: Position.TOP }).show({
+          message: "issue posted",
+          intent: Intent.SUCCESS
+        }))
+      .catch(() =>
+        Toaster.create({ position: Position.TOP }).show({
+          message: "failed posting issue",
+          action: { text: "retry", onClick: () => form.submit() },
+          intent: Intent.DANGER
+        }));
     this.issuePostDeferred = fromPromise(resultPromise);
   }
 }
@@ -58,7 +105,7 @@ const FormComponent = inject("form")(
       <form onSubmit={form.onSubmit}>
 
         <FormInput form={form} field="title" />
-        <FormInput form={form} field="text" />
+        <FormInput form={form} field="body" />
 
         {form.issuePostDeferred.case({
           pending: () => <Button type="submit" loading={true} text="submit" />,
@@ -78,30 +125,33 @@ const FormComponent = inject("form")(
   })
 );
 
-export default inject("issueStore")(
+export default inject("githubAPI", "issueStore", "sessionStore")(
   observer(
     class IssueFormComponent extends React.Component {
-      constructor({ issueStore, route }) {
+      constructor({ issueStore, sessionStore, githubAPI, route }) {
         super();
 
-        const values = {
-          title: 'example',
-          text: 'asdf'
-        }
-
         this.state = {
-          form: new IssueForm({ fields, values }, { plugins }, issueStore, route.params.repo)
+          form: new IssueForm(
+            { fields },
+            { plugins },
+            issueStore,
+            sessionStore,
+            githubAPI,
+            route.params.repo,
+            route.params.issueId
+          )
         };
       }
       render() {
         const { form } = this.state;
-        const {route} = this.props;
+        const { route } = this.props;
 
         return (
           <Provider form={form}>
             <div>
-            <h3>issue for {route.params.repo}</h3>
-            <FormComponent />
+              <h3>issue for {route.params.repo}</h3>
+              <FormComponent />
             </div>
           </Provider>
         );
